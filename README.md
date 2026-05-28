@@ -1,0 +1,74 @@
+# anovapowersim
+
+`anovapowersim` is designed to make determining a priori power for ANOVAs as easy as possible. You can add as many within/between factors with as many levels as you would like. There's no need to estimate condition means, SDs, or repeated-measures correlations; just enter the target partial eta squared.
+
+The package simulates data and estimates power based on the specified design. It also provides direct power calculations for comparison.
+
+Getting a priori power for a 2 × 2 × 3 mixed interaction effect is as simple as running the following:
+
+``` r
+library(anovapowersim)
+
+power_n(
+  between = c(group = 2), # group has 2 levels
+  within = c(stim = 2, cond = 3), # stim has 2 levels, cond has 3
+  term = "group:stim:cond", # three-way interaction term
+  target_pes = 0.08, # target effect size
+  n_sims = 5000, # increase to 10000+ for more precise estimates
+  power = .80,
+  alpha = .05,
+  parallel = TRUE, # simulations will be run in parallel for speed
+  seed = 123 # for reproducibility
+)
+```
+
+```text
+#><anovapowersim_curve>
+#>  term:          'group:stim:cond'
+#>  target power:  0.800
+#>  alpha:         0.05
+#>  effect size:   pes = 0.08
+#>  n values:      7 per-cell sample sizes visited
+#>  sims per cell size: 5000
+#>  n needed for between-subjects cell: 30
+#>  total N needed: 60
+#>
+#> n_per_cell total_n n_sims num_df den_df    ncp power_calc power_sim
+#>         24      48   5000      2     92  8.000      0.702     0.702
+#>         27      54   5000      2    104  9.043      0.760     0.758
+#>         28      56   5000      2    108  9.391      0.777     0.787
+#>         29      58   5000      2    112  9.739      0.793     0.796
+#>         30      60   5000      2    116 10.087      0.808     0.817
+#>         36      72   5000      2    140 12.174      0.881     0.886
+#>         48      96   5000      2    188 16.348      0.958     0.961
+```
+
+## Installation
+
+`anovapowersim` is currently in development. You can install it from GitHub using the `devtools` package:
+
+``` r
+# Install devtools if you haven't already
+install.packages("devtools")
+
+# Install anovapowersim from GitHub
+devtools::install_github("shaheedazaad/anovapowersim")
+```
+
+## Citation
+
+A preprint is in preparation.
+
+## Limitations
+
+`anovapowersim` is designed to be simple and easy to use first, which means it has some limitations for now. It does not support:
+
+- Covariates (ANCOVAs)
+- Means-based simulations for unbalanced designs
+- Nonsphericity corrections (though this might change)
+- Specific interaction shapes (based on means)
+- Simple main effects/pairwise comparisons
+
+## Other packages
+
+I recommend checking out [`Superpower`](https://aaroncaldwell.us/Superpower/), which handles some of the limitations above.
