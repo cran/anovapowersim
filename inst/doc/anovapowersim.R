@@ -32,7 +32,7 @@ vignette_results <- readRDS(vignette_results_path)
 #   term = "cond:stim",
 #   target_pes = 0.14,
 #   alpha = 0.05,
-#   power = 0.80,
+#   power = 0.90,
 #   n_sims = 1000, # use 5000+ for a more precise estimate
 #   seed = 123 # for reproducibility
 # )
@@ -47,7 +47,7 @@ vignette_results$adaptive
 #   term = "cond:stim:age",
 #   target_pes = 0.14,
 #   alpha = 0.05,
-#   power = 0.80,
+#   power = 0.90,
 #   n_sims = 1000, # use 5000+ for a more precise estimate
 #   seed = 123 # for reproducibility
 # )
@@ -94,7 +94,7 @@ plot_power_curve(
 #   term = "cond:stim",
 #   target_pes = 0.14,
 #   alpha = 0.05,
-#   power = 0.80,
+#   power = 0.90,
 #   n_sims = 1000,
 #   seed = 123,
 #   gpower = TRUE

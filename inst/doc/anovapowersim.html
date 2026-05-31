@@ -356,37 +356,38 @@ requested <code>power</code>.</p>
 (<code>cond</code>) and one within-subject factor
 (<code>stim</code>).</p>
 <p>We specify that we are interested in the <code>cond:stim</code>
-interaction, and that we want to have 80% power to detect a partial eta
+interaction, and that we want to have 90% power to detect a partial eta
 squared of 0.14. <code>power_n()</code> will search for the required
-sample size per between-subject cell, so <code>n = 13</code> gives total
-<code>N = 26</code>.</p>
+sample size per between-subject cell, so <code>n = 17</code> gives total
+<code>N = 34</code>.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">power_n</span>(</span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">between =</span> <span class="fu">c</span>(<span class="at">cond =</span> <span class="dv">2</span>), <span class="co"># cond has 2 levels</span></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">within =</span> <span class="fu">c</span>(<span class="at">stim =</span> <span class="dv">4</span>), <span class="co"># stim has 4 levels</span></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">term =</span> <span class="st">&quot;cond:stim&quot;</span>,</span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">target_pes =</span> <span class="fl">0.14</span>,</span>
 <span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">alpha =</span> <span class="fl">0.05</span>,</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">power =</span> <span class="fl">0.80</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">power =</span> <span class="fl">0.90</span>,</span>
 <span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="at">n_sims =</span> <span class="dv">1000</span>, <span class="co"># use 5000+ for a more precise estimate</span></span>
 <span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span> <span class="co"># for reproducibility</span></span>
 <span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>)</span></code></pre></div>
 <pre><code>#&gt; &lt;anovapowersim_curve&gt;
 #&gt;   term:          &#39;cond:stim&#39;
-#&gt;   target power:  0.800
+#&gt;   target power:  0.900
 #&gt;   alpha:         0.05
 #&gt;   effect size:   pes = 0.14
-#&gt;   n values:      5 per-cell sample sizes visited
+#&gt;   n values:      6 per-cell sample sizes visited
 #&gt;   sims per cell size: 1000
 #&gt;   SS type:       III
-#&gt;   n needed for between-subjects cell: 13
-#&gt;   total N needed: 26
+#&gt;   n needed for between-subjects cell: 17
+#&gt;   total N needed: 34
 #&gt; 
 #&gt;  n_per_cell total_n n_sims num_df den_df    ncp power_calc power_sim
-#&gt;          10      20   1000      3     54  8.791      0.665     0.665
-#&gt;          12      24   1000      3     66 10.744      0.767     0.783
-#&gt;          13      26   1000      3     72 11.721      0.808     0.808
-#&gt;          15      30   1000      3     84 13.674      0.872     0.882
-#&gt;          20      40   1000      3    114 18.558      0.958     0.951</code></pre>
+#&gt;          13      26   1000      3     72 11.721      0.808     0.795
+#&gt;          16      32   1000      3     90 14.651      0.897     0.885
+#&gt;          17      34   1000      3     96 15.628      0.917     0.912
+#&gt;          18      36   1000      3    102 16.605      0.934     0.936
+#&gt;          20      40   1000      3    114 18.558      0.958     0.946
+#&gt;          26      52   1000      3    150 24.419      0.991     0.991</code></pre>
 <p>Note: here we use 1000 simulations for a quick example, but the
 package defaults to 10000 simulations for more precise estimates.</p>
 <p>The output table uses compact column names: <code>n_per_cell</code>
@@ -406,7 +407,7 @@ levels, and we are interested in the 3-way interaction, we can do:</p>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">term =</span> <span class="st">&quot;cond:stim:age&quot;</span>,</span>
 <span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">target_pes =</span> <span class="fl">0.14</span>,</span>
 <span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">alpha =</span> <span class="fl">0.05</span>,</span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">power =</span> <span class="fl">0.80</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">power =</span> <span class="fl">0.90</span>,</span>
 <span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="at">n_sims =</span> <span class="dv">1000</span>, <span class="co"># use 5000+ for a more precise estimate</span></span>
 <span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span> <span class="co"># for reproducibility</span></span>
 <span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>)</span></code></pre></div>
@@ -484,31 +485,30 @@ within-subjects designs) <code>lambda = total_n * f^2</code>.</p>
 <span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">term =</span> <span class="st">&quot;cond:stim&quot;</span>,</span>
 <span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">target_pes =</span> <span class="fl">0.14</span>,</span>
 <span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">alpha =</span> <span class="fl">0.05</span>,</span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">power =</span> <span class="fl">0.80</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">power =</span> <span class="fl">0.90</span>,</span>
 <span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">n_sims =</span> <span class="dv">1000</span>,</span>
 <span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span>,</span>
 <span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">gpower =</span> <span class="cn">TRUE</span></span>
 <span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>)</span></code></pre></div>
 <pre><code>#&gt; &lt;anovapowersim_curve&gt;
 #&gt;   term:          &#39;cond:stim&#39;
-#&gt;   target power:  0.800
+#&gt;   target power:  0.900
 #&gt;   alpha:         0.05
 #&gt;   effect size:   pes = 0.14
-#&gt;   n values:      7 per-cell sample sizes visited
+#&gt;   n values:      6 per-cell sample sizes visited
 #&gt;   sims per cell size: 1000
 #&gt;   G*Power convention: TRUE
 #&gt;   SS type:       III
-#&gt;   n needed for between-subjects cell: 35
-#&gt;   total N needed: 70
+#&gt;   n needed for between-subjects cell: 45
+#&gt;   total N needed: 90
 #&gt; 
 #&gt;  n_per_cell total_n n_sims num_df den_df    ncp power_calc power_sim
-#&gt;          28      56   1000      3    162  9.116      0.706     0.695
-#&gt;          31      62   1000      3    180 10.093      0.755     0.734
-#&gt;          33      66   1000      3    192 10.744      0.784     0.780
-#&gt;          34      68   1000      3    198 11.070      0.798     0.796
-#&gt;          35      70   1000      3    204 11.395      0.811     0.821
-#&gt;          42      84   1000      3    246 13.674      0.883     0.876
-#&gt;          56     112   1000      3    330 18.233      0.959     0.967</code></pre>
+#&gt;          36      72   1000      3    210 11.721      0.823     0.829
+#&gt;          44      88   1000      3    258 14.326      0.899     0.889
+#&gt;          45      90   1000      3    264 14.651      0.906     0.907
+#&gt;          47      94   1000      3    276 15.302      0.919     0.919
+#&gt;          52     104   1000      3    306 16.930      0.944     0.936
+#&gt;          72     144   1000      3    426 23.442      0.989     0.990</code></pre>
 </div>
 </div>
 
