@@ -16,10 +16,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-`anovapowersim` simulates power for balanced factorial ANOVA
-designs. Specify the factors/levels, the term of interest, and a target partial
-eta squared. `anovapowersim` generates default term-specific cell means,
-simulates datasets, refits the ANOVA with `stats::aov()`, and estimates power.
+`anovapowersim` simulates power for balanced factorial ANOVA designs. Specify
+the factors and levels, the term of interest, and a target partial eta squared.
+The package generates default term-specific cell means, simulates datasets,
+refits the ANOVA, and estimates power.
 
 ```{r setup, message=FALSE}
 library(anovapowersim)
@@ -44,20 +44,17 @@ vignette_results <- readRDS(vignette_results_path)
 
 ## Search for the required sample size
 
-The easiest way to get your required sample size is to use `power_n()` to
-search for the sample size needed to reach the requested `power`.
-
-This example is a 2 x 2 mixed design with one between-subjects factor
-(`cond`) and one within-subject factor (`stim`).
-
-We specify that we are interested in the `cond:stim` interaction, and that we want to have 90% power to detect a partial eta squared of 0.14. `power_n()` will search for the required sample size per between-subject cell, so `n = 17` gives total `N = 34`.
+Use `power_n()` to search for the sample size needed to reach the requested
+power. This example is a mixed design with one two-level between-subject factor
+(`cond`) and one four-level within-subject factor (`stim`). It tests the
+`cond:stim` interaction with 90% power to detect a partial eta squared of 0.14.
 
 ```{r adaptive-code, eval=FALSE}
 power_n(
   between = c(cond = 2), # cond has 2 levels
   within = c(stim = 4), # stim has 4 levels
   term = "cond:stim",
-  target_pes = 0.14,
+  target_pes = 0.14, 
   alpha = 0.05,
   power = 0.90,
   n_sims = 1000, # use 5000+ for a more precise estimate
@@ -69,34 +66,39 @@ power_n(
 vignette_results$adaptive
 ```
 
-Note: here we use 1000 simulations for a quick example, but the package defaults to 10000 simulations for more precise estimates.
+`power_n()` reports the required number of subjects per between-subject cell
+and the corresponding total N. For a purely within-subject design, the reported
+`n_per_cell` is the total sample size.
 
-The output table uses compact column names: `n_per_cell` is the sample size per
-between-subject cell, `total_n` is the full sample size, `num_df` and `den_df`
-are the ANOVA degrees of freedom, `ncp` is the noncentrality parameter,
-`power_calc` is the noncentral F power calculation, and `power_sim` is the
-simulation estimate.
+The output table uses compact column names: `num_df` and `den_df` are the ANOVA
+degrees of freedom, `ncp` is the noncentrality parameter, `power_calc` is the
+calculated noncentral-F power, and `power_sim` is the simulation estimate.
+
+The example uses 1000 simulations for speed. Use at least 5000 simulations for
+a more stable estimate; the package default is 10000.
 
 ### Adding factors and levels
 
-You can add factors and levels as needed, and specify any term of interest. For, example if we want to add a between condition with 3 levels, and we are interested in the 3-way interaction, we can do:
+Add as many factors and levels as required and name the term to test. For
+example, this design includes a three-level between-subject factor and tests a
+three-way interaction:
 
 ```{r complex, eval=FALSE}
 power_n(
-  between = c(cond = 2, age = 3), # cond has 2 levels, age has 3 levels
-  within = c(stim = 4), # stim has 4 levels
+  between = c(cond = 2, age = 3),
+  within = c(stim = 4),
   term = "cond:stim:age",
-  target_pes = 0.14,
-  alpha = 0.05,
+  target_pes = f_to_pes(0.50)
   power = 0.90,
-  n_sims = 1000, # use 5000+ for a more precise estimate
-  seed = 123 # for reproducibility
+  n_sims = 5000,
+  seed = 123
 )
 ```
 
 ## Simulate a power curve
 
-You might want to see how power changes across a range of sample sizes. `power_curve()` simulates power across a range of sample sizes, which you can specify with `n_range`. The result is a tidy data frame that you can plot with `plot_power_curve()`.
+Use `power_curve()` to estimate power across explicitly chosen sample sizes.
+The result is a tidy table that can be passed to `plot_power_curve()`.
 
 ```{r curve-fixed-code, eval=FALSE}
 pc <- power_curve(
@@ -104,7 +106,7 @@ pc <- power_curve(
   within = c(stim = 2),
   term = "cond:stim",
   target_pes = 0.14,
-  n_range = c(16, 20, 23, 28), # n per between-subject cell
+  n_range = c(16, 20, 23, 28),
   n_sims = 1000,
   seed = 123
 )
@@ -116,29 +118,26 @@ pc <- vignette_results$curve
 pc
 ```
 
-```{r plot-fixed, echo=FALSE}
+```{r plot-fixed}
 plot_power_curve(
   pc,
-  power_lines = c(.80, .90) # adds horizontal lines at 80% and 90% power
+  power_lines = c(0.80, 0.90)
 )
 ```
 
-## Advanced options
+## Run simulations in parallel
 
-### Run simulations in parallel
-
-For larger simulation runs, set `parallel = TRUE`. If you do not set `cores`,
-`anovapowersim` uses one fewer than the number of available cores and prints a
-message with the chosen count. Set `cores` explicitly when you want a fixed
-number of cores.
+For larger simulation runs, set `parallel = TRUE`. If `cores` is omitted,
+`anovapowersim` uses one fewer than the available cores and reports the number
+selected. Set `cores` explicitly when a fixed number of workers is required.
 
 ```{r parallel, eval=FALSE}
-power_curve(
+power_n(
   between = c(cond = 2),
   within = c(stim = 2),
   term = "cond:stim",
   target_pes = 0.14,
-  n_range = c(16, 20, 23, 28),
+  power = 0.90,
   n_sims = 5000,
   parallel = TRUE,
   cores = 4,
@@ -146,30 +145,10 @@ power_curve(
 )
 ```
 
-### Match the G\*Power convention
+## Next steps
 
-By default, `anovapowersim` calibrates the simulated cell means so the empirical
-reference dataset has the requested partial eta squared under the fitted
-`stats::aov()` model. This corresponds to the fitted ANOVA denominator-df
-noncentrality convention.
-
-Set `gpower = TRUE` when you want the G\*Power-style convention (when using the 'as in Cohen (1988) option for within-subjects designs)
-`lambda = total_n * f^2`. 
-
-```{r gpower-adaptive-code, eval=FALSE}
-power_n(
-  between = c(cond = 2),
-  within = c(stim = 4),
-  term = "cond:stim",
-  target_pes = 0.14,
-  alpha = 0.05,
-  power = 0.90,
-  n_sims = 1000,
-  seed = 123,
-  gpower = TRUE
-)
-```
-
-```{r gpower-adaptive-output, echo=FALSE}
-vignette_results$gpower_adaptive
-```
+- [Fixed-sample power and sensitivity](fixed-sample-power.html)
+- [Calculated power without simulations](calculated-power.html)
+- [Power for unbalanced designs](unbalanced-designs.html)
+- [Covariance and nonsphericity](covariance.html)
+- [Comparison with G\*Power](comparison-with-gpower.html)

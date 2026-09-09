@@ -2,7 +2,7 @@
 % Please edit documentation in R/power_curve.R
 \name{design_term_means}
 \alias{design_term_means}
-\title{Build calibrated default means for a design term}
+\title{Build calibrated means for a design term}
 \usage{
 design_term_means(
   design,
@@ -12,7 +12,8 @@ design_term_means(
   sd = 1,
   r = 0.5,
   gpower = FALSE,
-  ss_type = "III"
+  ss_type = "III",
+  means_pattern = NULL
 )
 }
 \arguments{
@@ -30,22 +31,41 @@ is the total sample size.}
 
 \item{r}{Compound-symmetric correlation among within-subject cells.}
 
-\item{gpower}{Logical; if \code{TRUE}, calibrate to the G*Power-style
-noncentrality convention \code{lambda = total_n * f^2} (using the 'as in Cohen (1988) option for within-subjects designs).}
+\item{gpower}{Logical; if \code{TRUE}, calibrate to the G\emph{Power-style
+noncentrality convention \code{lambda = total_n * f^2} (as in the "Cohen
+(1988)" option for within-subjects designs in G}Power). G*Power's
+estimates can differ from \code{target_pes}, especially for small samples or
+terms with more degrees of freedom; a warning is issued when
+\code{gpower = TRUE}. The default \code{gpower = FALSE} is recommended.}
 
 \item{ss_type}{Sums-of-squares type for the tested ANOVA term. \code{"III"} is
 the default for order-invariant tests in unbalanced designs. Use \code{"I"} to
 reproduce sequential \code{stats::aov()} tests.}
+
+\item{means_pattern}{Optional relative mean shape from \code{\link[=means_pattern]{means_pattern()}}.
+Sparse values are projected onto \code{term} before calibration. If \code{NULL}, the
+deterministic linear/Kronecker default is used.}
 }
 \value{
 A numeric matrix of cell means, with rows indexing between cells and
 columns indexing within cells.
 }
 \description{
-Creates the default contrast pattern for one ANOVA term and scales it so an
-exact reference dataset has the requested partial eta squared under the
-supplied balanced design assumptions.
+Projects a supplied relative pattern (or uses the documented
+linear/Kronecker default) for one ANOVA term and scales it so an exact
+reference dataset has the requested partial eta squared under the supplied
+balanced design assumptions.
 }
+\section{Covariance limitation}{
+
+This manual helper does not accept \code{\link[=within_covariance]{within_covariance()}} specifications.
+Calibration always uses the compound-symmetric covariance defined by \code{sd}
+and \code{r}. Consequently, its calibrated means can differ from those used by
+\code{\link[=power_curve]{power_curve()}}, \code{\link[=power_n]{power_n()}}, or \code{\link[=power_achieved]{power_achieved()}} with a custom
+\code{covariance}, because the covariance affects the reference residual sum of
+squares and therefore the mean scale factor.
+}
+
 \examples{
 d <- balanced_anova_design(between = c(group = 2), within = c(time = 2))
 design_term_means(d, term = "group:time", target_pes = 0.2, n = 20)

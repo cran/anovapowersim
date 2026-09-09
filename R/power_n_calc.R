@@ -1,0 +1,382 @@
+#' Calculate the sample size needed for target ANOVA power
+#'
+#' Calculation-only search for the per-between-cell sample size needed to reach
+#' a requested power for a balanced factorial ANOVA design. Unlike
+#' [power_n()], this function does not run simulations, fit ANOVA models, or
+#' call `car`; numerator degrees of freedom, denominator degrees of freedom,
+#' noncentrality, and calculated power are obtained directly from the balanced
+#' design.
+#'
+#' @section Lifecycle:
+#' \ifelse{html}{\out{<a href="https://lifecycle.r-lib.org/articles/stages.html#experimental"><img src="https://lifecycle.r-lib.org/articles/figures/lifecycle-experimental.svg" alt="[Experimental]"></a>}}{\strong{Experimental}}
+#'
+#' `power_n_calc()` is experimental while the calculated-power search API and
+#' reporting format are refined.
+#'
+#' @param between Named integer vector of between-subject factor level counts,
+#'   e.g. `c(group = 2)`. Use `NULL` for no between-subject factors.
+#' @param within Named integer vector of within-subject factor level counts,
+#'   e.g. `c(time = 3, condition = 4)`. Use `NULL` for no within-subject
+#'   factors.
+#' @param term Character scalar naming the ANOVA term to test, e.g.
+#'   `"group:time"`. Interaction terms are order-insensitive; `"time:group"`
+#'   resolves to `"group:time"` when that is the design's factor order.
+#' @param target_pes Target partial eta squared for `term`.
+#' @param power Desired target power.
+#' @param alpha Significance threshold.
+#' @param n_start Starting sample size per between-subject cell, not a lower
+#'   bound for the search. If `NULL`, starts from the smallest value with valid
+#'   calculated-power degrees of freedom.
+#' @param n_max Maximum sample size per between-subject cell.
+#' @param gpower Logical; if `TRUE`, use the G*Power-style noncentrality
+#'   convention `lambda = total_n * f^2`. The default `FALSE` uses
+#'   `lambda = den_df * f^2`. G*Power's estimates can differ from
+#'   `target_pes`, especially for small samples or terms with more degrees of
+#'   freedom; a warning is issued when `gpower = TRUE`. The default
+#'   `gpower = FALSE` is recommended.
+#' @param epsilon Population nonsphericity correction for the within-subject
+#'   component of `term`. Must lie between the theoretical lower bound
+#'   `1 / within_term_df` and `1`. The default `1` assumes sphericity. Values
+#'   below `1` multiply the numerator degrees of freedom, denominator degrees
+#'   of freedom, and noncentrality parameter. Nonsphericity corrections do not
+#'   apply to purely between-subject terms.
+#'
+#' @return An `anovapowersim_curve` object with `n_needed` and
+#'   `total_n_needed`. The `$results` tibble contains `n_per_cell`, `total_n`,
+#'   `n_sims`, `valid_sims`, `failed_sims`, numerator and denominator degrees
+#'   of freedom (`num_df`, `den_df`), the nonsphericity correction (`epsilon`),
+#'   the noncentrality parameter (`ncp`), calculated power (`power_calc`),
+#'   and simulated power (`power_sim`). For `power_n_calc()`, the
+#'   simulation-specific columns are always `NA`. When `epsilon < 1`, `num_df`
+#'   and `den_df` are the corrected degrees of freedom used in the power
+#'   calculation.
+#'
+#' @examples
+#' power_n_calc(
+#'   between = c(cond = 2),
+#'   within = c(stim = 4),
+#'   term = "cond:stim",
+#'   target_pes = 0.14,
+#'   power = 0.90,
+#'   epsilon = 0.70
+#' )
+#'
+#' @export
+power_n_calc <- function(between = NULL,
+                         within = NULL,
+                         term,
+                         target_pes,
+                         power = 0.90,
+                         alpha = 0.05,
+                         n_start = NULL,
+                         n_max = 5000,
+                         gpower = FALSE,
+                         epsilon = 1) {
+  setup <- prepare_power_n_calc_inputs(
+    between = between,
+    within = within,
+    term = term,
+    target_pes = target_pes,
+    power = power,
+    alpha = alpha,
+    n_start = n_start,
+    n_max = n_max,
+    gpower = gpower,
+    epsilon = epsilon
+  )
+
+  curve <- analytic_power_search(
+    spec = setup$spec,
+    term = setup$term,
+    target_pes = target_pes,
+    target_power = power,
+    alpha = alpha,
+    n_start = setup$n_start,
+    n_max = setup$n_max,
+    gpower = setup$gpower,
+    epsilon = setup$epsilon
+  )
+
+  n_needed <- estimate_calc_n_needed(curve, target = power)
+  warn_target_power_not_reached(
+    n_needed = n_needed,
+    target = power,
+    n_max = setup$n_max
+  )
+  total_n_needed <- if (is.na(n_needed)) {
+    NA_integer_
+  } else {
+    as.integer(n_needed * max(1L, setup$spec$n_between_cells))
+  }
+
+  structure(
+    list(
+      results = curve,
+      term = setup$term,
+      power = power,
+      alpha = alpha,
+      target_pes = target_pes,
+      scale_factor = NA_real_,
+      n_sims = NA_integer_,
+      n_needed = n_needed,
+      total_n_needed = total_n_needed,
+      gpower = setup$gpower,
+      epsilon = setup$epsilon,
+      ss_type = NULL,
+      design = setup$spec,
+      call = match.call()
+    ),
+    class = "anovapowersim_curve"
+  )
+}
+
+
+#' @keywords internal
+#' @noRd
+prepare_power_n_calc_inputs <- function(between, within, term, target_pes,
+                                        power, alpha, n_start, n_max,
+                                        gpower, epsilon = 1) {
+  spec <- balanced_anova_design(between = between, within = within)
+  term <- resolve_design_term(term, spec)
+  assert_unit_interval(target_pes, "target_pes")
+  if (target_pes == 0.06) {
+    warning(
+      paste(
+        "It looks like you are using a rule-of-thumb \"medium\" effect size.",
+        "This might overestimate the true effect size, rendering your study",
+        "underpowered. Consider basing your power calculations on previous",
+        "research or empirically-derived guidelines."
+      ),
+      call. = FALSE,
+      immediate. = TRUE
+    )
+  }
+  assert_unit_interval(power, "power")
+  if (is.finite(power) && power < 0.90) {
+    warning("Power greater than or equal to .90 is recommended.",
+            call. = FALSE,
+            immediate. = TRUE)
+  }
+  assert_unit_interval(alpha, "alpha")
+  if (!is.logical(gpower) || length(gpower) != 1L || is.na(gpower)) {
+    stop("`gpower` must be TRUE or FALSE.", call. = FALSE)
+  }
+  warn_gpower_within_term_df(gpower = gpower)
+  epsilon <- validate_analytic_epsilon(epsilon, spec = spec, term = term)
+  if (!is.numeric(n_max) || length(n_max) != 1L ||
+      n_max < 1 || n_max != as.integer(n_max)) {
+    stop("`n_max` must be a single positive integer.", call. = FALSE)
+  }
+
+  n_min <- minimum_analytic_n(spec)
+  if (is.null(n_start)) {
+    n_start <- n_min
+  } else if (!is.numeric(n_start) || length(n_start) != 1L ||
+             n_start < 1 || n_start != as.integer(n_start)) {
+    stop("`n_start` must be a single positive integer.", call. = FALSE)
+  }
+  n_start <- as.integer(n_start)
+  n_max <- as.integer(n_max)
+  if (n_start < n_min) {
+    stop(
+      "`n_start` is too small for calculated power. ",
+      "Use `n_start >= ", n_min, "` so the denominator degrees of freedom ",
+      "are positive.",
+      call. = FALSE
+    )
+  }
+  if (n_max < n_start) {
+    stop("`n_max` must be greater than or equal to `n_start`.",
+         call. = FALSE)
+  }
+
+  list(
+    spec = spec,
+    term = term,
+    n_start = n_start,
+    n_max = n_max,
+    gpower = gpower,
+    epsilon = epsilon
+  )
+}
+
+
+#' @keywords internal
+#' @noRd
+validate_analytic_epsilon <- function(epsilon, spec, term) {
+  if (!is.numeric(epsilon) || length(epsilon) != 1L ||
+      !is.finite(epsilon) || epsilon <= 0 || epsilon > 1) {
+    stop("`epsilon` must be a single finite number in (0, 1].",
+         call. = FALSE)
+  }
+
+  term_factors <- strsplit(term, ":", fixed = TRUE)[[1L]]
+  within_factors <- intersect(term_factors, spec$within)
+  if (!length(within_factors)) {
+    if (epsilon < 1) {
+      stop(
+        "`epsilon` must be 1 for a purely between-subject term; ",
+        "nonsphericity corrections apply only to terms containing a ",
+        "within-subject factor.",
+        call. = FALSE
+      )
+    }
+    return(1)
+  }
+
+  term_df <- within_term_df(spec = spec, term = term)
+  lower_bound <- 1 / term_df
+  if (epsilon < lower_bound) {
+    stop(
+      "`epsilon` must be at least ", format(lower_bound),
+      " for term '", term, "' because its within-subject component has ",
+      term_df, " degree", if (term_df == 1L) "" else "s",
+      " of freedom.",
+      call. = FALSE
+    )
+  }
+
+  as.numeric(epsilon)
+}
+
+
+#' @keywords internal
+#' @noRd
+minimum_analytic_n <- function(spec) {
+  2L
+}
+
+
+#' @keywords internal
+#' @noRd
+analytic_power_row <- function(n, spec, term, target_pes, alpha, gpower,
+                               epsilon = 1) {
+  dfs <- analytic_term_dfs(spec = spec, term = term, n = n)
+  total_n <- as.integer(n * max(1L, spec$n_between_cells))
+  uncorrected_ncp <- ncp_from_pes(
+    pes = target_pes,
+    total_n = total_n,
+    den_df = dfs$den_df,
+    gpower = gpower
+  )
+  num_df <- epsilon * dfs$num_df
+  den_df <- epsilon * dfs$den_df
+  ncp <- epsilon * uncorrected_ncp
+  power_calc <- stats::pf(
+    stats::qf(alpha, num_df, den_df, lower.tail = FALSE),
+    num_df,
+    den_df,
+    ncp = ncp,
+    lower.tail = FALSE
+  )
+
+  tibble::tibble(
+    n_per_cell = as.integer(n),
+    total_n = total_n,
+    n_sims = NA_integer_,
+    valid_sims = NA_integer_,
+    failed_sims = NA_integer_,
+    epsilon = epsilon,
+    num_df = num_df,
+    den_df = den_df,
+    ncp = ncp,
+    power_calc = power_calc,
+    power_sim = NA_real_
+  )
+}
+
+
+#' @keywords internal
+#' @noRd
+analytic_term_dfs <- function(spec, term, n) {
+  term_factors <- strsplit(term, ":", fixed = TRUE)[[1L]]
+  num_df <- prod(spec$level_counts[term_factors] - 1L)
+  total_n <- as.integer(n * max(1L, spec$n_between_cells))
+
+  within_factors <- intersect(term_factors, spec$within)
+  if (length(within_factors)) {
+    term_df <- within_term_df(spec = spec, term = term)
+    den_df <- (total_n - spec$n_between_cells) * term_df
+  } else {
+    den_df <- total_n - spec$n_between_cells
+  }
+
+  list(
+    num_df = as.numeric(num_df),
+    den_df = as.numeric(den_df)
+  )
+}
+
+
+#' @keywords internal
+#' @noRd
+estimate_calc_n_needed <- function(curve, target) {
+  curve <- dplyr::arrange(curve, .data$n_per_cell)
+  above <- which(curve$power_calc >= target)
+  if (length(above) == 0L) return(NA_integer_)
+  as.integer(curve$n_per_cell[[above[1L]]])
+}
+
+
+#' @keywords internal
+#' @noRd
+analytic_power_search <- function(spec, term, target_pes, target_power, alpha,
+                                  n_start, n_max, gpower, epsilon = 1) {
+  visited <- list()
+
+  run_one <- function(n) {
+    key <- as.character(n)
+    if (!is.null(visited[[key]])) return(visited[[key]])
+    row <- analytic_power_row(
+      n = n,
+      spec = spec,
+      term = term,
+      target_pes = target_pes,
+      alpha = alpha,
+      gpower = gpower,
+      epsilon = epsilon
+    )
+    visited[[key]] <<- row
+    row
+  }
+
+  lo <- NA_integer_
+  hi <- NA_integer_
+  n_min <- minimum_analytic_n(spec)
+  n <- as.integer(n_start)
+  repeat {
+    row <- run_one(n)
+    if (is.finite(row$power_calc) && row$power_calc >= target_power) {
+      hi <- n
+      if (is.na(lo) && n > n_min) {
+        lower_row <- run_one(n_min)
+        if (is.finite(lower_row$power_calc) &&
+            lower_row$power_calc >= target_power) {
+          hi <- n_min
+        } else {
+          lo <- n_min
+        }
+      }
+      break
+    }
+    lo <- n
+    if (n >= n_max) break
+    n <- min(n_max, max(n + 1L, n * 2L))
+  }
+
+  if (!is.na(hi) && !is.na(lo)) {
+    while (hi > lo + 1L) {
+      mid <- as.integer(floor((lo + hi) / 2L))
+      row <- run_one(mid)
+      if (is.finite(row$power_calc) && row$power_calc >= target_power) {
+        hi <- mid
+      } else {
+        lo <- mid
+      }
+    }
+  }
+
+  dplyr::bind_rows(visited) |>
+    dplyr::arrange(.data$n_per_cell) |>
+    dplyr::distinct(.data$n_per_cell, .keep_all = TRUE)
+}

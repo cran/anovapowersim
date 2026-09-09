@@ -7,6 +7,8 @@ The package simulates data and estimates power based on the specified design. It
 Getting a priori power for a 2 × 2 × 3 mixed interaction effect is as simple as running the following:
 
 ``` r
+install.packages("anovapowersim") # if not already installed
+
 library(anovapowersim)
 
 power_n(
@@ -45,31 +47,76 @@ power_n(
 #>         62     124   5000      2    244 21.217      0.989     0.988
 ```
 
+## Additional power analyses
+
+`anovapowersim` includes several experimental power-analysis options.
+Their full examples and guidance are kept in the dedicated guides linked below.
+
+### Achieved power and sensitivity
+
+At a fixed sample size, `power_achieved()` estimates power for a chosen partial
+eta squared, while `power_sensitivity()` estimates the minimum detectable
+partial eta squared. See the
+[fixed-sample tutorial](https://shaheedazaad.github.io/anovapowersim/articles/fixed-sample-power.html).
+
+### Calculation-only functions
+
+The `_calc()` functions skip simulations and use calculated noncentral-F power.
+They also support planned nonsphericity through `epsilon`. See the
+[calculated-power tutorial](https://shaheedazaad.github.io/anovapowersim/articles/calculated-power.html).
+
+### Power for unbalanced designs
+
+`power_unbalanced()` simulates one exact allocation from user-defined cell
+means and sample sizes under a common standard deviation and optional
+within-subject correlations. It
+is simulation-only and does not extrapolate how unequal cell sizes should
+scale. See the
+[unbalanced-design tutorial](https://shaheedazaad.github.io/anovapowersim/articles/unbalanced-designs.html).
+
 ## Installation
 
-`anovapowersim` is currently in development. You can install it from GitHub using the `devtools` package:
+Install `anovapowersim` from CRAN:
 
 ``` r
-# Install devtools if you haven't already
-install.packages("devtools")
+install.packages("anovapowersim")
+```
 
-# Install anovapowersim from GitHub
-devtools::install_github("shaheedazaad/anovapowersim")
+CRAN remains the primary installation source. R-universe also provides published
+GitHub Releases rather than development snapshots.
+
+You can install the development version from GitHub:
+
+``` r
+install.packages("pak")
+pak::pak("shaheedazaad/anovapowersim")
+```
+
+Or, with `remotes`:
+
+``` r
+install.packages("remotes")
+remotes::install_github("shaheedazaad/anovapowersim")
 ```
 
 ## Citation
 
-A preprint is in preparation.
+Azaad, S. (2026). A priori power analysis for ANOVA interaction effects with the anovapowersim R package: a short introduction. https://doi.org/10.31234/osf.io/86rsy_v1.
 
 ## Limitations
 
 `anovapowersim` is designed to be simple and easy to use first, which means it has some limitations for now. It does not support:
 
 - Covariates (ANCOVAs)
-- Means-based simulations for unbalanced designs
-- Nonsphericity corrections (though this might change)
-- Specific interaction shapes (based on means)
+- Sample-size searches or power curves for unbalanced designs
+- Huynh-Feldt corrections in power simulations. Greenhouse-Geisser-corrected
+  simulated tests are supported for sums-of-squares type II or III when a
+  custom covariance implies `epsilon < 1`; type I tests remain uncorrected.
+- Heteroskedastic ANOVA. Simulation functions require one common marginal
+  variance; unequal correlations and Greenhouse--Geisser corrections remain
+  supported for repeated-measures designs.
 - Simple main effects/pairwise comparisons
+
 
 ## Other packages
 

@@ -14,13 +14,16 @@ power_n(
   alpha = 0.05,
   ss_type = "III",
   n_start = NULL,
-  n_max = 1000,
+  n_max = 5000,
   tol = 0.03,
   gpower = FALSE,
   progress = interactive(),
   parallel = FALSE,
   cores = NULL,
-  seed = NULL
+  seed = NULL,
+  covariance = NULL,
+  means_pattern = NULL,
+  sim_correction = c("auto", "GG", "none")
 )
 }
 \arguments{
@@ -45,11 +48,13 @@ resolves to \code{"group:time"} when that is the design's factor order.}
 
 \item{ss_type}{Sums-of-squares type for the tested ANOVA term. \code{"III"} is
 the default for order-invariant tests in unbalanced designs. Use \code{"I"} to
-reproduce sequential \code{stats::aov()} tests.}
+reproduce sequential \code{stats::aov()} tests. Greenhouse--Geisser-corrected
+simulated p-values are available only for \code{"III"} and \code{"II"}.}
 
-\item{n_start}{Starting sample size per between-subject cell. If \code{NULL},
-starts at the smallest value that can support empirical calibration for
-the requested design.}
+\item{n_start}{Starting sample size per between-subject cell, not a lower
+bound for the search. If \code{NULL}, an initial value is estimated from
+calculated power and constrained to values that support empirical
+calibration for the requested design.}
 
 \item{n_max}{Maximum sample size per between-subject cell.}
 
@@ -57,10 +62,13 @@ the requested design.}
 or above \code{power} is also no more than \code{power + tol}, \code{power_n()} warns that
 the requested precision band was not reached.}
 
-\item{gpower}{Logical; if \code{TRUE}, calibrate means to the G*Power-style
+\item{gpower}{Logical; if \code{TRUE}, calibrate means to the G\emph{Power-style
 noncentrality convention \code{lambda = total_n * f^2}. The default \code{FALSE}
 calibrates the empirical reference dataset to \code{target_pes}, equivalent to
-\code{lambda = den_df * f^2} for the fitted ANOVA.}
+\code{lambda = den_df * f^2} for the fitted ANOVA. G}Power's estimates can
+differ from \code{target_pes}, especially for small samples or terms with more
+degrees of freedom; a warning is issued when \code{gpower = TRUE}. The default
+\code{gpower = FALSE} is recommended.}
 
 \item{progress}{Logical; if \code{TRUE}, show a text progress bar.}
 
@@ -72,6 +80,39 @@ the \code{future} ecosystem.}
 cores, with a minimum of one.}
 
 \item{seed}{Optional integer seed for reproducibility.}
+
+\item{covariance}{Optional within-subject covariance specification created
+by \code{\link[=within_covariance]{within_covariance()}}. Raw covariance matrices are not accepted, which
+avoids silently assuming a within-cell order. The default \code{NULL} uses
+standard deviations of \code{1} and a compound-symmetric correlation of \code{0.5}
+and issues a warning stating those defaults. A
+\code{\link[=within_covariance]{within_covariance()}} specification issues a warning when correlation
+pairs are omitted: its \code{default_correlation} applies only to those
+undefined pairs, while explicitly defined correlations are unchanged.
+All measurements use the specification's common marginal variance, while
+unequal correlations remain supported. For terms containing
+within-subject factors, the resolved covariance matrix is also used to
+derive a term-specific population Greenhouse--Geisser epsilon for
+\code{power_calc}. With the default \code{sim_correction = "auto"}, a population
+epsilon below \code{1 - 1e-8} also selects Greenhouse--Geisser-corrected
+simulated p-values for \code{ss_type} \code{"II"} or \code{"III"}.}
+
+\item{means_pattern}{Optional relative cell-mean shape created by
+\code{\link[=means_pattern]{means_pattern()}}. The sparse values are projected onto \code{term}, normalized,
+and uniformly rescaled to reach \code{target_pes}. If \code{NULL}, simulations use
+the package's deterministic linear/Kronecker pattern. For multi-df
+nonspherical within-subject terms, simulated power is conditional on this
+direction, so an explicit pattern is recommended when the expected shape
+is known.}
+
+\item{sim_correction}{Sphericity correction for simulated p-values:
+\code{"auto"} (the default) uses Greenhouse--Geisser correction when the
+term-specific population epsilon is below \code{1 - 1e-8} and \code{ss_type} is
+\code{"II"} or \code{"III"}; \code{"GG"} requests correction for every simulated
+dataset; and \code{"none"} always uses the uncorrected univariate test.
+\code{"GG"} is an error with \code{ss_type = "I"}. For a between-only term or a
+within component with one degree of freedom, \code{"GG"} silently resolves to
+\code{"none"} because no sphericity correction applies.}
 }
 \value{
 An \code{anovapowersim_curve} object with \code{n_needed} and
@@ -85,9 +126,11 @@ precision band was not reached.
 \description{
 Adaptive simulation search for the per-between-cell sample size needed to
 reach a requested power for a balanced factorial ANOVA design. The search
-doubles upward from \code{n_start} until it brackets the target or reaches
-\code{n_max}, then refines the bracket using interpolation with midpoint
-bisection as a fallback.
+searches upward from \code{n_start} until it brackets the target or reaches
+\code{n_max}. If \code{n_start} already reaches the target, the search probes the
+smallest sample size supported by the design to establish a lower bracket.
+It then refines the bracket using interpolation with midpoint bisection as
+a fallback.
 }
 \section{Examples}{
 

@@ -42,14 +42,13 @@ vignette_results$adaptive
 
 ## ----complex, eval=FALSE------------------------------------------------------
 # power_n(
-#   between = c(cond = 2, age = 3), # cond has 2 levels, age has 3 levels
-#   within = c(stim = 4), # stim has 4 levels
+#   between = c(cond = 2, age = 3),
+#   within = c(stim = 4),
 #   term = "cond:stim:age",
-#   target_pes = 0.14,
-#   alpha = 0.05,
+#   target_pes = f_to_pes(0.50)
 #   power = 0.90,
-#   n_sims = 1000, # use 5000+ for a more precise estimate
-#   seed = 123 # for reproducibility
+#   n_sims = 5000,
+#   seed = 123
 # )
 
 ## ----curve-fixed-code, eval=FALSE---------------------------------------------
@@ -58,7 +57,7 @@ vignette_results$adaptive
 #   within = c(stim = 2),
 #   term = "cond:stim",
 #   target_pes = 0.14,
-#   n_range = c(16, 20, 23, 28), # n per between-subject cell
+#   n_range = c(16, 20, 23, 28),
 #   n_sims = 1000,
 #   seed = 123
 # )
@@ -68,38 +67,22 @@ vignette_results$adaptive
 pc <- vignette_results$curve
 pc
 
-## ----plot-fixed, echo=FALSE---------------------------------------------------
+## ----plot-fixed---------------------------------------------------------------
 plot_power_curve(
   pc,
-  power_lines = c(.80, .90) # adds horizontal lines at 80% and 90% power
+  power_lines = c(0.80, 0.90)
 )
 
 ## ----parallel, eval=FALSE-----------------------------------------------------
-# power_curve(
+# power_n(
 #   between = c(cond = 2),
 #   within = c(stim = 2),
 #   term = "cond:stim",
 #   target_pes = 0.14,
-#   n_range = c(16, 20, 23, 28),
+#   power = 0.90,
 #   n_sims = 5000,
 #   parallel = TRUE,
 #   cores = 4,
 #   seed = 123
 # )
-
-## ----gpower-adaptive-code, eval=FALSE-----------------------------------------
-# power_n(
-#   between = c(cond = 2),
-#   within = c(stim = 4),
-#   term = "cond:stim",
-#   target_pes = 0.14,
-#   alpha = 0.05,
-#   power = 0.90,
-#   n_sims = 1000,
-#   seed = 123,
-#   gpower = TRUE
-# )
-
-## ----gpower-adaptive-output, echo=FALSE---------------------------------------
-vignette_results$gpower_adaptive
 

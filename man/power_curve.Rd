@@ -17,7 +17,10 @@ power_curve(
   progress = interactive(),
   parallel = FALSE,
   cores = NULL,
-  seed = NULL
+  seed = NULL,
+  covariance = NULL,
+  means_pattern = NULL,
+  sim_correction = c("auto", "GG", "none")
 )
 }
 \arguments{
@@ -43,12 +46,16 @@ pure within-subject designs, this is the total sample size.}
 
 \item{ss_type}{Sums-of-squares type for the tested ANOVA term. \code{"III"} is
 the default for order-invariant tests in unbalanced designs. Use \code{"I"} to
-reproduce sequential \code{stats::aov()} tests.}
+reproduce sequential \code{stats::aov()} tests. Greenhouse--Geisser-corrected
+simulated p-values are available only for \code{"III"} and \code{"II"}.}
 
-\item{gpower}{Logical; if \code{TRUE}, calibrate means to the G*Power-style
+\item{gpower}{Logical; if \code{TRUE}, calibrate means to the G\emph{Power-style
 noncentrality convention \code{lambda = total_n * f^2}. The default \code{FALSE}
 calibrates the empirical reference dataset to \code{target_pes}, equivalent to
-\code{lambda = den_df * f^2} for the fitted ANOVA.}
+\code{lambda = den_df * f^2} for the fitted ANOVA. G}Power's estimates can
+differ from \code{target_pes}, especially for small samples or terms with more
+degrees of freedom; a warning is issued when \code{gpower = TRUE}. The default
+\code{gpower = FALSE} is recommended.}
 
 \item{progress}{Logical; if \code{TRUE}, show a text progress bar.}
 
@@ -60,21 +67,83 @@ the \code{future} ecosystem.}
 cores, with a minimum of one.}
 
 \item{seed}{Optional integer seed for reproducibility.}
+
+\item{covariance}{Optional within-subject covariance specification created
+by \code{\link[=within_covariance]{within_covariance()}}. Raw covariance matrices are not accepted, which
+avoids silently assuming a within-cell order. The default \code{NULL} uses
+standard deviations of \code{1} and a compound-symmetric correlation of \code{0.5}
+and issues a warning stating those defaults. A
+\code{\link[=within_covariance]{within_covariance()}} specification issues a warning when correlation
+pairs are omitted: its \code{default_correlation} applies only to those
+undefined pairs, while explicitly defined correlations are unchanged.
+All measurements use the specification's common marginal variance, while
+unequal correlations remain supported. For terms containing
+within-subject factors, the resolved covariance matrix is also used to
+derive a term-specific population Greenhouse--Geisser epsilon for
+\code{power_calc}. With the default \code{sim_correction = "auto"}, a population
+epsilon below \code{1 - 1e-8} also selects Greenhouse--Geisser-corrected
+simulated p-values for \code{ss_type} \code{"II"} or \code{"III"}.}
+
+\item{means_pattern}{Optional relative cell-mean shape created by
+\code{\link[=means_pattern]{means_pattern()}}. The sparse values are projected onto \code{term}, normalized,
+and uniformly rescaled to reach \code{target_pes}. If \code{NULL}, simulations use
+the package's deterministic linear/Kronecker pattern. For multi-df
+nonspherical within-subject terms, simulated power is conditional on this
+direction, so an explicit pattern is recommended when the expected shape
+is known.}
+
+\item{sim_correction}{Sphericity correction for simulated p-values:
+\code{"auto"} (the default) uses Greenhouse--Geisser correction when the
+term-specific population epsilon is below \code{1 - 1e-8} and \code{ss_type} is
+\code{"II"} or \code{"III"}; \code{"GG"} requests correction for every simulated
+dataset; and \code{"none"} always uses the uncorrected univariate test.
+\code{"GG"} is an error with \code{ss_type = "I"}. For a between-only term or a
+within component with one degree of freedom, \code{"GG"} silently resolves to
+\code{"none"} because no sphericity correction applies.}
 }
 \value{
 An \code{anovapowersim_curve} object. The \verb{$results} tibble contains
-\code{n_per_cell}, \code{total_n}, \code{n_sims}, numerator and denominator degrees of
-freedom (\code{num_df}, \code{den_df}), the noncentrality parameter (\code{ncp}),
-calculated power (\code{power_calc}), and simulated power (\code{power_sim}).
+\code{n_per_cell}, \code{total_n}, \code{n_sims}, successful and failed simulation counts
+(\code{valid_sims}, \code{failed_sims}), the population nonsphericity correction
+(\code{epsilon}), numerator and denominator degrees of freedom (\code{num_df},
+\code{den_df}), the noncentrality parameter (\code{ncp}), calculated power
+(\code{power_calc}), and simulated power (\code{power_sim}). The full-precision
+\code{power_sim} value, not its printed three-decimal representation, is used
+by adaptive searches. When \code{epsilon < 1}, the reported degrees of freedom
+and noncentrality are the corrected values used for \code{power_calc}. With the
+default \code{sim_correction = "auto"}, \code{power_sim} uses the
+Greenhouse--Geisser-corrected simulated p-value when
+\code{epsilon < 1 - 1e-8} and \code{ss_type} is \code{"III"} or \code{"II"}; otherwise it
+uses the uncorrected univariate test. Balanced simulation result objects
+also include \code{custom_means_pattern}, indicating whether the relative
+direction was supplied explicitly, plus \code{sim_correction} and
+\code{sim_correction_resolved} for the requested and applied simulated-test
+correction.
 }
 \description{
-Simulation-based power estimation for balanced factorial designs under
-sphericity. Users specify the between- and within-subject factors, the ANOVA
-term to test, a target partial eta squared, and explicit sample sizes. The
-function creates a default contrast pattern for the target term, scales it to
-the requested partial eta squared, simulates datasets, refits
-\code{stats::aov()}, and estimates power by counting \code{p < alpha}.
+Simulation-based power estimation for balanced factorial designs. Users
+specify the between- and within-subject factors, the ANOVA term to test, a
+target partial eta squared, and explicit sample sizes. The function projects
+an explicit relative means pattern (or uses the documented
+linear/Kronecker default), scales it to the requested partial eta squared,
+simulates datasets, refits the ANOVA, and estimates power by counting
+\code{p < alpha}.
 }
+\section{Simulated sphericity correction}{
+
+\code{sim_correction} changes only \code{power_sim}. When Greenhouse--Geisser
+correction is selected, each simulated dataset is tested using its own
+sample-estimated epsilon from \code{car::Anova()}. \code{power_calc} is unchanged and
+always models the population-epsilon-adjusted test. Consequently, forcing
+\code{sim_correction = "GG"} under a truly spherical population can make
+\code{power_sim} slightly smaller than \code{power_calc}, because sample-epsilon GG
+correction is mildly conservative under sphericity.
+
+Power is estimated for the prespecified corrected or uncorrected test.
+Conditional procedures that first run Mauchly's test and then decide whether
+to correct are not simulated.
+}
+
 \section{Examples}{
 
 
@@ -97,6 +166,21 @@ power_curve(
   n_sims = 5000,
   parallel = TRUE,
   cores = 4,
+  seed = 123
+)
+
+power_curve(
+  within = c(time = 4),
+  term = "time",
+  target_pes = 0.15,
+  n_range = 30,
+  means_pattern = means_pattern(
+    time = 1, value = 0,
+    time = 2, value = 0.3,
+    time = 3, value = 0.5,
+    time = 4, value = 0.6
+  ),
+  n_sims = 1000,
   seed = 123
 )
 }\if{html}{\out{</div>}}
